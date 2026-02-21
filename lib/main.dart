@@ -237,7 +237,17 @@ class _MushafPageState extends State<MushafPage> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: widget.initialPage - 1);
+    
+    // التعديل هنا: حفظ الصفحة فوراً بمجرد فتح الشاشة
+    _saveCurrentPage(widget.initialPage); 
+    
     _precachePages(widget.initialPage - 1);
+  }
+
+  // دالة مساعدة لحفظ رقم الصفحة في ذاكرة الجهاز
+  Future<void> _saveCurrentPage(int pageNumber) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('last_read_page', pageNumber);
   }
 
   void _precachePages(int currentIndex) {
@@ -266,11 +276,12 @@ class _MushafPageState extends State<MushafPage> {
             child: PageView.builder(
               controller: _pageController,
               itemCount: 604,
-              onPageChanged: (index) async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setInt('last_read_page', index + 1);
+              onPageChanged: (index) {
+                // التعديل هنا: استخدام الدالة الجديدة عند التقليب
+                _saveCurrentPage(index + 1);
                 _precachePages(index);
               },
+// ... (باقي كود الـ PageView والـ AppBar زي ما هو بدون تغيير)
               itemBuilder: (context, index) {
                 String pg = (index + 1).toString().padLeft(3, '0');
                 return InteractiveViewer(
