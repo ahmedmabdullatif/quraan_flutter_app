@@ -3,13 +3,18 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
-// متغير عام للتحكم في الثيم من أي مكان في التطبيق
+// متحكم عالمي للوضع الليلي
 final ValueNotifier<bool> isDarkModeNotifier = ValueNotifier(false);
 
 void main() async {
-  // السطر ده ضروري عشان نقدر نستخدم SharedPreferences قبل ما التطبيق يفتح
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // تحجيم الذاكرة لمنع خروج التطبيق (OOM Fix)
+  PaintingBinding.instance.imageCache.maximumSize = 50; 
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 50 * 1024 * 1024; 
+
   final prefs = await SharedPreferences.getInstance();
   isDarkModeNotifier.value = prefs.getBool('is_dark_mode') ?? false;
   
@@ -21,33 +26,33 @@ class QuranApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // الأداة دي بتراقب المتغير، وأول ما يتغير بتعمل ريفريش للتطبيق كله فورا
     return ValueListenableBuilder<bool>(
       valueListenable: isDarkModeNotifier,
       builder: (context, isDark, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'تطبيق المصحف',
+          title: 'تطبيق المصحف الشريف',
+          
+          // إعدادات اللغة العربية والاتجاه من اليمين لليسار
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('ar', 'AE')],
+          locale: const Locale('ar', 'AE'), 
+
           themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-          // إعدادات الثيم الفاتح
           theme: ThemeData(
             brightness: Brightness.light,
             primarySwatch: Colors.green,
             scaffoldBackgroundColor: Colors.yellow.shade50,
-            appBarTheme: AppBarTheme(
-              backgroundColor: Colors.green.shade800,
-              foregroundColor: Colors.white,
-            ),
+            appBarTheme: AppBarTheme(backgroundColor: Colors.green.shade800, foregroundColor: Colors.white),
           ),
-          // إعدادات الثيم الغامق
           darkTheme: ThemeData(
             brightness: Brightness.dark,
             scaffoldBackgroundColor: const Color(0xFF121212),
-            appBarTheme: AppBarTheme(
-              backgroundColor: Colors.grey.shade900,
-              foregroundColor: Colors.white,
-            ),
-            cardColor: Colors.grey.shade800,
+            appBarTheme: AppBarTheme(backgroundColor: Colors.grey.shade900, foregroundColor: Colors.white),
           ),
           home: const HomePage(),
         );
@@ -69,8 +74,14 @@ class _HomePageState extends State<HomePage> {
   int lastReadPage = 1;
   TextEditingController searchController = TextEditingController();
 
+  // خريطة بدايات السور
   final List<int> surahStartingPage = [
     1, 2, 50, 77, 106, 128, 151, 177, 187, 208, 221, 235, 249, 255, 262, 267, 282, 293, 305, 312, 322, 332, 342, 350, 359, 367, 377, 385, 396, 404, 411, 415, 418, 428, 434, 440, 446, 453, 458, 467, 477, 483, 489, 496, 499, 502, 507, 511, 515, 518, 520, 523, 526, 528, 531, 534, 537, 542, 545, 549, 551, 553, 554, 556, 558, 560, 562, 564, 566, 568, 570, 572, 574, 575, 577, 578, 580, 582, 583, 585, 586, 587, 587, 589, 590, 591, 591, 592, 593, 594, 595, 595, 596, 596, 597, 597, 598, 598, 599, 599, 600, 600, 601, 601, 601, 602, 602, 602, 603, 603, 603, 604, 604, 604
+  ];
+
+  // خريطة بدايات الأجزاء
+  final List<int> juzStartingPages = [
+    1, 22, 42, 62, 82, 102, 121, 142, 162, 182, 201, 222, 242, 262, 282, 302, 322, 342, 362, 382, 402, 422, 442, 462, 482, 502, 522, 542, 562, 582
   ];
 
   Future<void> readJson() async {
@@ -89,18 +100,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  void filterSearch(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        filteredSurahs = surahs;
-      } else {
-        filteredSurahs = surahs.where((surah) {
-          return surah["name"].contains(query);
-        }).toList();
-      }
-    });
-  }
-
   @override
   void initState() {
     super.initState();
@@ -111,180 +110,111 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'القرآن الكريم',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24, fontFamily: 'AmiriQuran'),
-        ),
-        centerTitle: true,
-        actions: [
-          // زرار التبديل بين الوضع الليلي والنهاري
-          IconButton(
-            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-            onPressed: () async {
-              isDarkModeNotifier.value = !isDark;
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setBool('is_dark_mode', !isDark);
-            },
-          )
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => MushafPage(initialPage: lastReadPage),
-            ),
-          );
-          loadLastReadPage();
-        },
-        label: Text('متابعة القراءة ($lastReadPage)', 
-          style: const TextStyle(fontFamily: 'AmiriQuran', fontWeight: FontWeight.bold, fontSize: 16)),
-        icon: const Icon(Icons.menu_book),
-        backgroundColor: isDark ? Colors.grey.shade700 : Colors.green.shade800,
-        foregroundColor: Colors.white,
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: TextField(
-              controller: searchController,
-              onChanged: filterSearch,
-              textDirection: TextDirection.rtl,
-              decoration: InputDecoration(
-                hintText: "ابحث عن اسم السورة...",
-                hintTextDirection: TextDirection.rtl,
-                prefixIcon: Icon(Icons.search, color: isDark ? Colors.grey : Colors.green),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide(color: isDark ? Colors.grey : Colors.green.shade800),
-                ),
-                filled: true,
-                fillColor: isDark ? Colors.grey.shade800 : Colors.white,
-              ),
-            ),
+    
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('فهرس المصحف', style: TextStyle(fontFamily: 'AmiriQuran', fontWeight: FontWeight.bold)),
+          centerTitle: true,
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: "السور"),
+              Tab(text: "الأجزاء"),
+            ],
+            indicatorColor: Colors.amber,
+            labelStyle: TextStyle(fontFamily: 'AmiriQuran', fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          Expanded(
-            child: filteredSurahs.isEmpty
-                ? const Center(child: Text("جاري التحميل أو لا توجد نتائج", style: TextStyle(fontFamily: 'AmiriQuran', fontSize: 18)))
-                : ListView.builder(
-                    itemCount: filteredSurahs.length,
-                    itemBuilder: (context, index) {
-                      var currentSurah = filteredSurahs[index];
-                      String typeAr = currentSurah["type"] == "meccan" ? "مكية" : "مدنية";
-                      int surahId = currentSurah["id"]; 
-                      int startingPage = surahStartingPage[surahId - 1];
-
-                      return GestureDetector(
-  onTap: () async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MushafPage(initialPage: startingPage),
-      ),
-    );
-    loadLastReadPage();
-  },
-  child: Container(
-    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-    height: 100, // طول الكارت
-    decoration: BoxDecoration(
-      color: isDark ? Colors.grey.shade900 : Colors.white,
-      borderRadius: BorderRadius.circular(15),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.1),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
+          actions: [
+            IconButton(
+              icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+              onPressed: () async {
+                isDarkModeNotifier.value = !isDark;
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('is_dark_mode', !isDark);
+              },
+            )
+          ],
         ),
-      ],
-    ),
-    child: Stack(
-      children: [
-        // زخرفة جانبية بسيطة
-        Positioned(
-          left: -10,
-          top: -10,
-          child: Icon(Icons.wb_sunny_outlined, 
-            size: 100, color: Colors.green.withOpacity(0.05)),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () async {
+            await Navigator.push(context, MaterialPageRoute(builder: (c) => MushafPage(initialPage: lastReadPage)));
+            loadLastReadPage();
+          },
+          label: Text('متابعة القراءة ($lastReadPage)', style: const TextStyle(fontFamily: 'AmiriQuran')),
+          icon: const Icon(Icons.menu_book),
+          backgroundColor: isDark ? Colors.grey.shade800 : Colors.green.shade800,
+          foregroundColor: Colors.white,
         ),
-        
-        Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // الجزء اليمين: رقم السورة ونوعها
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "آياتها: ${currentSurah["total_verses"]}",
-                    style: TextStyle(fontFamily: 'AmiriQuran', color: isDark ? Colors.grey : Colors.green.shade900),
-                  ),
-                  Text(
-                    typeAr,
-                    style: TextStyle(fontFamily: 'AmiriQuran', color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-
-              // الجزء الأوسط: اسم السورة داخل البرواز المزخرف
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  // صورة البرواز المزخرف (استخدمنا أيقونة زخرفية كبديل سريع أو صورة)
-                  Icon(
-                    Icons.brightness_low, // شكل زخرفي يشبه النجمة الإسلامية
-                    size: 80,
-                    color: Colors.amber.shade700.withOpacity(0.2),
-                  ),
-                  // اسم السورة
-                  Text(
-                    currentSurah["name"],
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontFamily: 'AmiriQuran',
-                      fontWeight: FontWeight.bold,
-                      color: Colors.brown,
+        body: TabBarView(
+          children: [
+            // التبويب الأول: السور
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: TextField(
+                    controller: searchController,
+                    onChanged: (value) => setState(() => filteredSurahs = surahs.where((s) => s["name"].contains(value)).toList()),
+                    decoration: InputDecoration(
+                      hintText: "ابحث عن سورة...",
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: isDark ? Colors.grey.shade800 : Colors.white,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                     ),
                   ),
-                ],
-              ),
-
-              // الجزء الشمال: رقم السورة في دائرة
-              Container(
-                width: 45,
-                height: 45,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.amber.shade700, width: 2),
                 ),
-                alignment: Alignment.center,
-                child: Text(
-                  surahId.toString(),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  ),
-);
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: filteredSurahs.length,
+                    itemBuilder: (context, index) {
+                      var surah = filteredSurahs[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        child: ListTile(
+                          title: Text(surah["name"], style: const TextStyle(fontFamily: 'AmiriQuran', fontSize: 22, fontWeight: FontWeight.bold)),
+                          subtitle: Text("آياتها: ${surah["total_verses"]}"),
+                          leading: CircleAvatar(child: Text(surah["id"].toString())),
+                          onTap: () async {
+                            await Navigator.push(context, MaterialPageRoute(builder: (c) => MushafPage(initialPage: surahStartingPage[surah["id"] - 1])));
+                            loadLastReadPage();
+                          },
+                        ),
+                      );
                     },
                   ),
-          ),
-        ],
+                ),
+              ],
+            ),
+            
+            // التبويب الثاني: الأجزاء
+            ListView.builder(
+              itemCount: 30,
+              itemBuilder: (context, index) {
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: isDark ? Colors.amber.shade900 : Colors.green.shade100,
+                      child: Text((index + 1).toString(), style: TextStyle(color: isDark ? Colors.white : Colors.green.shade900)),
+                    ),
+                    title: Text("الجزء ${index + 1}", style: const TextStyle(fontFamily: 'AmiriQuran', fontSize: 20)),
+                    subtitle: Text("يبدأ من صفحة: ${juzStartingPages[index]}"),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () async {
+                      await Navigator.push(
+                        context, 
+                        MaterialPageRoute(builder: (c) => MushafPage(initialPage: juzStartingPages[index]))
+                      );
+                      loadLastReadPage();
+                    },
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -292,7 +222,6 @@ class _HomePageState extends State<HomePage> {
 
 class MushafPage extends StatefulWidget {
   final int initialPage;
-
   const MushafPage({super.key, required this.initialPage});
 
   @override
@@ -302,112 +231,100 @@ class MushafPage extends StatefulWidget {
 class _MushafPageState extends State<MushafPage> {
   late PageController _pageController;
   bool _showAppBar = false;
+  final TextEditingController _jumpController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: widget.initialPage - 1);
+    _precachePages(widget.initialPage - 1);
+  }
+
+  void _precachePages(int currentIndex) {
+    Future.delayed(const Duration(seconds: 1), () {
+      for (var i = 1; i <= 2; i++) {
+        if (currentIndex + i < 604) {
+          String nextPg = (currentIndex + i + 1).toString().padLeft(3, '0');
+          if (mounted) {
+            precacheImage(CachedNetworkImageProvider('https://android.quran.com/data/width_1024/page$nextPg.png'), context);
+          }
+        }
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-
+    
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xffFDF8F2),
-      // استخدمنا Stack عشان نفصل الصورة عن الشريط تماماً
       body: Stack(
         children: [
-          // ==========================================
-          // الطبقة الأولى: المصحف (ثابتة تماماً)
-          // ==========================================
           GestureDetector(
-            onTap: () {
-              setState(() {
-                _showAppBar = !_showAppBar;
-              });
-            },
-            child: Directionality(
-              textDirection: TextDirection.rtl,
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: 604, 
-                onPageChanged: (index) async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setInt('last_read_page', index + 1);
-                },
-                itemBuilder: (context, index) {
-                  String pageNumber = (index + 1).toString().padLeft(3, '0');
-                  
-                  Widget quranImage = CachedNetworkImage(
-                // ده الرابط الرسمي اللي فيه البراويز والخلفية الأصلية
-                imageUrl: 'https://android.quran.com/data/width_1024/page$pageNumber.png',
-                fit: BoxFit.fitWidth,
-                placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                errorWidget: (context, url, error) => const Center(child: Icon(Icons.error, color: Colors.red, size: 50)),
-              );
-                  
-                  return InteractiveViewer(
-                    child: isDark 
-                        ? ColorFiltered(
-                            colorFilter: const ColorFilter.matrix([
-                              -1,  0,  0, 0, 255,
-                               0, -1,  0, 0, 255,
-                               0,  0, -1, 0, 255,
-                               0,  0,  0, 1,   0,
-                            ]),
-                            child: quranImage,
-                          )
-                        : quranImage,
-                  );
-                },
-              ),
+            onTap: () => setState(() => _showAppBar = !_showAppBar),
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: 604,
+              onPageChanged: (index) async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setInt('last_read_page', index + 1);
+                _precachePages(index);
+              },
+              itemBuilder: (context, index) {
+                String pg = (index + 1).toString().padLeft(3, '0');
+                return InteractiveViewer(
+                  child: isDark 
+                    ? ColorFiltered(
+                        colorFilter: const ColorFilter.matrix([-1,0,0,0,255,0,-1,0,0,255,0,0,-1,0,255,0,0,0,1,0]),
+                        child: CachedNetworkImage(imageUrl: 'https://android.quran.com/data/width_1024/page$pg.png', fit: BoxFit.fitWidth),
+                      )
+                    : CachedNetworkImage(imageUrl: 'https://android.quran.com/data/width_1024/page$pg.png', fit: BoxFit.fitWidth),
+                );
+              },
             ),
           ),
-
-          // ==========================================
-          // الطبقة التانية: الشريط العلوي العائم (بيتحرك فوق الصورة)
-          // ==========================================
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            // لو المتغير true الشريط بينزل للصفر (أول الشاشة)، لو false بيطلع لـ -120 (بره الشاشة لفوق)
-            top: _showAppBar ? 0 : -120, 
-            left: 0,
-            right: 0,
+            top: _showAppBar ? 0 : -120,
+            left: 0, right: 0,
             child: Container(
-              color: isDark ? Color.fromARGB(255, 0, 0, 0) : Colors.white,
+              color: isDark ? Colors.black87 : Colors.white,
               child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 10),
-                  child: Row(
-                    children: [
-                      // زرار الرجوع للفهرس
-                      IconButton(
-                        icon: Icon(Icons.arrow_back_ios_new, color: isDark ? Colors.white : Colors.black),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      // عنوان الشاشة
-                      Expanded(
-                        child: Text(
-                          "المصحف الشريف",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'AmiriQuran',
-                            fontSize: 22,
-                            color: isDark ? Colors.white : Colors.black,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      // مسافة فاضية عشان العنوان يفضل في النص بالظبط
-                      const SizedBox(width: 48), 
-                    ],
-                  ),
+                child: Row(
+                  children: [
+                    IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
+                    const Spacer(),
+                    const Text("المصحف الشريف", style: TextStyle(fontFamily: 'AmiriQuran', fontSize: 20, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    IconButton(icon: const Icon(Icons.find_in_page), onPressed: () => _showJumpDialog(context, isDark)),
+                  ],
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showJumpDialog(BuildContext context, bool isDark) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("انتقل إلى صفحة", style: TextStyle(fontFamily: 'AmiriQuran')),
+        content: TextField(controller: _jumpController, keyboardType: TextInputType.number, autofocus: true),
+        actions: [
+          TextButton(
+            child: const Text("ذهاب"),
+            onPressed: () {
+              int? p = int.tryParse(_jumpController.text);
+              if (p != null && p >= 1 && p <= 604) {
+                _pageController.jumpToPage(p - 1);
+                Navigator.pop(context);
+                _jumpController.clear();
+              }
+            },
           ),
         ],
       ),
