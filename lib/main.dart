@@ -179,43 +179,108 @@ class _HomePageState extends State<HomePage> {
                       int surahId = currentSurah["id"]; 
                       int startingPage = surahStartingPage[surahId - 1];
 
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        child: ListTile(
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => MushafPage(initialPage: startingPage),
-                              ),
-                            );
-                            loadLastReadPage();
-                          },
-                          leading: CircleAvatar(
-                            backgroundColor: isDark ? Colors.grey.shade700 : Colors.green.shade100,
-                            child: Text(
-                              surahId.toString(),
-                              style: TextStyle(
-                                color: isDark ? Colors.white : Colors.green.shade900, 
-                                fontWeight: FontWeight.bold
-                              ),
-                            ),
-                          ),
-                          title: Text(
-                            currentSurah["name"],
-                            style: const TextStyle(fontSize: 24, fontFamily: 'AmiriQuran', fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text(
-                            "آياتها: ${currentSurah["total_verses"]} - $typeAr",
-                            style: TextStyle(
-                              fontFamily: 'AmiriQuran',
-                              fontSize: 16,
-                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
-                            ),
-                          ),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                        ),
-                      );
+                      return GestureDetector(
+  onTap: () async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MushafPage(initialPage: startingPage),
+      ),
+    );
+    loadLastReadPage();
+  },
+  child: Container(
+    margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+    height: 100, // طول الكارت
+    decoration: BoxDecoration(
+      color: isDark ? Colors.grey.shade900 : Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.1),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Stack(
+      children: [
+        // زخرفة جانبية بسيطة
+        Positioned(
+          left: -10,
+          top: -10,
+          child: Icon(Icons.wb_sunny_outlined, 
+            size: 100, color: Colors.green.withOpacity(0.05)),
+        ),
+        
+        Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // الجزء اليمين: رقم السورة ونوعها
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "آياتها: ${currentSurah["total_verses"]}",
+                    style: TextStyle(fontFamily: 'AmiriQuran', color: isDark ? Colors.grey : Colors.green.shade900),
+                  ),
+                  Text(
+                    typeAr,
+                    style: TextStyle(fontFamily: 'AmiriQuran', color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+
+              // الجزء الأوسط: اسم السورة داخل البرواز المزخرف
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  // صورة البرواز المزخرف (استخدمنا أيقونة زخرفية كبديل سريع أو صورة)
+                  Icon(
+                    Icons.brightness_low, // شكل زخرفي يشبه النجمة الإسلامية
+                    size: 80,
+                    color: Colors.amber.shade700.withOpacity(0.2),
+                  ),
+                  // اسم السورة
+                  Text(
+                    currentSurah["name"],
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontFamily: 'AmiriQuran',
+                      fontWeight: FontWeight.bold,
+                      color: Colors.brown,
+                    ),
+                  ),
+                ],
+              ),
+
+              // الجزء الشمال: رقم السورة في دائرة
+              Container(
+                width: 45,
+                height: 45,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.amber.shade700, width: 2),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  surahId.toString(),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  ),
+);
                     },
                   ),
           ),
@@ -275,11 +340,12 @@ class _MushafPageState extends State<MushafPage> {
                   String pageNumber = (index + 1).toString().padLeft(3, '0');
                   
                   Widget quranImage = CachedNetworkImage(
-                    imageUrl: 'https://raw.githubusercontent.com/GovarJabbar/Quran-PNG/master/$pageNumber.png',
-                    fit: BoxFit.fitWidth,
-                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                    errorWidget: (context, url, error) => const Center(child: Icon(Icons.error, color: Colors.red, size: 50)),
-                  );
+                // ده الرابط الرسمي اللي فيه البراويز والخلفية الأصلية
+                imageUrl: 'https://android.quran.com/data/width_1024/page$pageNumber.png',
+                fit: BoxFit.fitWidth,
+                placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                errorWidget: (context, url, error) => const Center(child: Icon(Icons.error, color: Colors.red, size: 50)),
+              );
                   
                   return InteractiveViewer(
                     child: isDark 
@@ -310,7 +376,7 @@ class _MushafPageState extends State<MushafPage> {
             left: 0,
             right: 0,
             child: Container(
-              color: isDark ? Colors.black.withOpacity(0.85) : Colors.white.withOpacity(0.95),
+              color: isDark ? Color.fromARGB(255, 0, 0, 0) : Colors.white,
               child: SafeArea(
                 bottom: false,
                 child: Padding(
