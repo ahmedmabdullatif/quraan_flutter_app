@@ -236,7 +236,7 @@ class MushafPage extends StatefulWidget {
 
 class _MushafPageState extends State<MushafPage> {
   late PageController _pageController;
-  bool _showAppBar = false; // متغير للتحكم في ظهور وإخفاء الشريط
+  bool _showAppBar = false;
 
   @override
   void initState() {
@@ -249,77 +249,101 @@ class _MushafPageState extends State<MushafPage> {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      // السطر ده بيخلي الصورة تمتد ورا الشريط عشان تاخد الشاشة كلها
-      extendBodyBehindAppBar: true, 
-      
-      // الشريط هيظهر ويختفي بناءً على لمسة المستخدم
-      appBar: _showAppBar 
-          ? AppBar(
-              backgroundColor: isDark ? Colors.black.withOpacity(0.7) : Colors.white.withOpacity(0.9),
-              elevation: 0, // بنشيل الظل عشان يبان مسطح واحترافي
-              iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
-              title: Text(
-                "المصحف الشريف",
-                style: TextStyle(
-                  fontFamily: 'AmiriQuran', 
-                  color: isDark ? Colors.white : Colors.black,
-                  fontWeight: FontWeight.bold
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xffFDF8F2),
+      // استخدمنا Stack عشان نفصل الصورة عن الشريط تماماً
+      body: Stack(
+        children: [
+          // ==========================================
+          // الطبقة الأولى: المصحف (ثابتة تماماً)
+          // ==========================================
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _showAppBar = !_showAppBar;
+              });
+            },
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: 604, 
+                onPageChanged: (index) async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setInt('last_read_page', index + 1);
+                },
+                itemBuilder: (context, index) {
+                  String pageNumber = (index + 1).toString().padLeft(3, '0');
+                  
+                  Widget quranImage = CachedNetworkImage(
+                    imageUrl: 'https://raw.githubusercontent.com/GovarJabbar/Quran-PNG/master/$pageNumber.png',
+                    fit: BoxFit.fitWidth,
+                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                    errorWidget: (context, url, error) => const Center(child: Icon(Icons.error, color: Colors.red, size: 50)),
+                  );
+                  
+                  return InteractiveViewer(
+                    child: isDark 
+                        ? ColorFiltered(
+                            colorFilter: const ColorFilter.matrix([
+                              -1,  0,  0, 0, 255,
+                               0, -1,  0, 0, 255,
+                               0,  0, -1, 0, 255,
+                               0,  0,  0, 1,   0,
+                            ]),
+                            child: quranImage,
+                          )
+                        : quranImage,
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // ==========================================
+          // الطبقة التانية: الشريط العلوي العائم (بيتحرك فوق الصورة)
+          // ==========================================
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            // لو المتغير true الشريط بينزل للصفر (أول الشاشة)، لو false بيطلع لـ -120 (بره الشاشة لفوق)
+            top: _showAppBar ? 0 : -120, 
+            left: 0,
+            right: 0,
+            child: Container(
+              color: isDark ? Colors.black.withOpacity(0.85) : Colors.white.withOpacity(0.95),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 10),
+                  child: Row(
+                    children: [
+                      // زرار الرجوع للفهرس
+                      IconButton(
+                        icon: Icon(Icons.arrow_back_ios_new, color: isDark ? Colors.white : Colors.black),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      // عنوان الشاشة
+                      Expanded(
+                        child: Text(
+                          "المصحف الشريف",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'AmiriQuran',
+                            fontSize: 22,
+                            color: isDark ? Colors.white : Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      // مسافة فاضية عشان العنوان يفضل في النص بالظبط
+                      const SizedBox(width: 48), 
+                    ],
+                  ),
                 ),
               ),
-              centerTitle: true,
-            )
-          : null, // لو المتغير بـ false الشريط بيختفي تماماً
-
-      // كود لون الخلفية ده مقارب جداً للون أطراف صفحة المصحف عشان يندمج معاها
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xffFDF8F2),
-      
-      body: GestureDetector(
-        // لما المستخدم يضغط في أي مكان في الشاشة، بنعكس حالة الشريط (يظهر أو يختفي)
-        onTap: () {
-          setState(() {
-            _showAppBar = !_showAppBar;
-          });
-        },
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: 604, 
-            onPageChanged: (index) async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setInt('last_read_page', index + 1);
-            },
-            itemBuilder: (context, index) {
-              String pageNumber = (index + 1).toString().padLeft(3, '0');
-              
-              Widget quranImage = CachedNetworkImage(
-                imageUrl: 'https://raw.githubusercontent.com/GovarJabbar/Quran-PNG/master/$pageNumber.png',
-                // استخدمنا fitWidth عشان الصورة تعرض بعرض الشاشة بالكامل زي الصورة اللي بعتها
-                fit: BoxFit.fitWidth,
-                placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                errorWidget: (context, url, error) => const Center(child: Icon(Icons.error, color: Colors.red, size: 50)),
-              );
-              
-              return SafeArea(
-                // بنلغي الـ SafeArea من تحت عشان الصورة تنزل للآخر
-                bottom: false, 
-                child: InteractiveViewer(
-                  child: isDark 
-                      ? ColorFiltered(
-                          colorFilter: const ColorFilter.matrix([
-                            -1,  0,  0, 0, 255,
-                             0, -1,  0, 0, 255,
-                             0,  0, -1, 0, 255,
-                             0,  0,  0, 1,   0,
-                          ]),
-                          child: quranImage,
-                        )
-                      : quranImage,
-                ),
-              );
-            },
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
