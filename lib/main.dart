@@ -283,74 +283,86 @@ class _MushafPageState extends State<MushafPage> {
               itemBuilder: (context, index) {
                 String pg = (index + 1).toString().padLeft(3, '0');
                 
-                Widget pageText = CachedNetworkImage(
-                  imageUrl: 'https://raw.githubusercontent.com/GovarJabbar/Quran-PNG/master/$pg.png',
-                  // التعديل السحري هنا: إجبار الصورة على أخذ عرض الشاشة بالكامل
-                  fit: BoxFit.fitWidth, 
-                  placeholder: (context, url) => Center(child: CircularProgressIndicator(color: Colors.grey.shade400)),
-                  errorWidget: (context, url, error) => const Center(child: Icon(Icons.error, color: Colors.red)),
-                );
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    bool isWeb = constraints.maxWidth > 600;
 
-                return Center(
-                  child: Container(
-                    // خلينا الهوامش الجانبية صفر عشان الورقة تلزق في حافة الشاشة
-                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 40),
-                    decoration: BoxDecoration(
-                      color: paperColor,
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: isDark ? Colors.black54 : Colors.black12,
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
+                    Widget pageText = CachedNetworkImage(
+                      imageUrl: 'https://raw.githubusercontent.com/GovarJabbar/Quran-PNG/master/$pg.png',
+                      fit: BoxFit.fitWidth, 
+                      placeholder: (context, url) => Container(
+                        height: constraints.maxHeight, 
+                        alignment: Alignment.center,
+                        child: CircularProgressIndicator(color: Colors.grey.shade400)
+                      ),
+                      errorWidget: (context, url, error) => const Center(child: Icon(Icons.error, color: Colors.red)),
+                    );
+
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      // التعديل هنا: إجبار المحتوى على أخذ طول الشاشة كحد أدنى للتوسيط
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
                         ),
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Padding(
-                            // خلينا الفراغ الجانبي للنص صفر كمان
-                            padding: const EdgeInsets.only(top: 30, bottom: 50, left: 0, right: 0),
-                            child: isDark 
-                                ? ColorFiltered(
-                                    colorFilter: const ColorFilter.matrix([
-                                      -1, 0, 0, 0, 255,
-                                       0,-1, 0, 0, 255,
-                                       0, 0,-1, 0, 255,
-                                       0, 0, 0, 1, 0,
-                                    ]),
-                                    child: pageText,
-                                  )
-                                : pageText,
-                          ),
-                        ),
-                        
-                        Positioned(
-                          bottom: 10,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: Text(
-                              "${index + 1}",
-                              style: TextStyle(
-                                fontFamily: 'AmiriQuran',
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.grey.shade500 : Colors.brown.shade700,
-                              ),
+                        // السنتر دلوقتي هيوسطن الصفحة رأسياً وأفقياً بامتياز
+                        child: Center(
+                          child: Container(
+                            width: isWeb ? 500 : constraints.maxWidth,
+                            margin: EdgeInsets.symmetric(horizontal: 0, vertical: isWeb ? 20 : 0),
+                            decoration: BoxDecoration(
+                              color: paperColor,
+                              borderRadius: isWeb ? BorderRadius.circular(15) : BorderRadius.zero,
+                              boxShadow: isWeb ? [
+                                BoxShadow(
+                                  color: isDark ? Colors.black54 : Colors.black12,
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ] : [],
+                            ),
+                            child: Column( 
+                              mainAxisSize: MainAxisSize.min, // مهمة عشان الورقة متتمطش بزيادة
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 60, bottom: 20, left: 0, right: 0),
+                                  child: isDark 
+                                      ? ColorFiltered(
+                                          colorFilter: const ColorFilter.matrix([
+                                            -1, 0, 0, 0, 255,
+                                             0,-1, 0, 0, 255,
+                                             0, 0,-1, 0, 255,
+                                             0, 0, 0, 1, 0,
+                                          ]),
+                                          child: pageText,
+                                        )
+                                      : pageText,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 30),
+                                  child: Text(
+                                    "${index + 1}",
+                                    style: TextStyle(
+                                      fontFamily: 'AmiriQuran',
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.grey.shade500 : Colors.brown.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  }
                 );
               },
             ),
           ),
 
-          // الشريط العلوي كما هو بدون تغيير
+          // الشريط العلوي كما هو 
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutCubic,
