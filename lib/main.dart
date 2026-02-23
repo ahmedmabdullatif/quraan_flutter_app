@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'dart:ui';
 
-// متحكم عالمي للوضع الليلي
+// Dark Mode Notifier
 final ValueNotifier<bool> isDarkModeNotifier = ValueNotifier(false);
 
 void main() async {
