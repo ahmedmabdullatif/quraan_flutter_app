@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'dart:ui';
 
 // متحكم عالمي للوضع الليلي
 final ValueNotifier<bool> isDarkModeNotifier = ValueNotifier(false);
@@ -237,14 +238,10 @@ class _MushafPageState extends State<MushafPage> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: widget.initialPage - 1);
-    
-    // التعديل هنا: حفظ الصفحة فوراً بمجرد فتح الشاشة
-    _saveCurrentPage(widget.initialPage); 
-    
+    _saveCurrentPage(widget.initialPage);
     _precachePages(widget.initialPage - 1);
   }
 
-  // دالة مساعدة لحفظ رقم الصفحة في ذاكرة الجهاز
   Future<void> _saveCurrentPage(int pageNumber) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('last_read_page', pageNumber);
@@ -256,7 +253,7 @@ class _MushafPageState extends State<MushafPage> {
         if (currentIndex + i < 604) {
           String nextPg = (currentIndex + i + 1).toString().padLeft(3, '0');
           if (mounted) {
-            precacheImage(CachedNetworkImageProvider('https://android.quran.com/data/width_1024/page$nextPg.png'), context);
+            precacheImage(CachedNetworkImageProvider('https://raw.githubusercontent.com/GovarJabbar/Quran-PNG/master/$nextPg.png'), context);
           }
         }
       }
@@ -267,8 +264,11 @@ class _MushafPageState extends State<MushafPage> {
   Widget build(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     
+    Color screenBgColor = isDark ? const Color(0xFF000000) : const Color(0xffEAEAEA);
+    Color paperColor = isDark ? const Color(0xFF1E1E1E) : const Color(0xffFAF7F3);
+
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xffFDF8F2),
+      backgroundColor: screenBgColor,
       body: Stack(
         children: [
           GestureDetector(
@@ -277,39 +277,117 @@ class _MushafPageState extends State<MushafPage> {
               controller: _pageController,
               itemCount: 604,
               onPageChanged: (index) {
-                // التعديل هنا: استخدام الدالة الجديدة عند التقليب
                 _saveCurrentPage(index + 1);
                 _precachePages(index);
               },
-// ... (باقي كود الـ PageView والـ AppBar زي ما هو بدون تغيير)
               itemBuilder: (context, index) {
                 String pg = (index + 1).toString().padLeft(3, '0');
-                return InteractiveViewer(
-                  child: isDark 
-                    ? ColorFiltered(
-                        colorFilter: const ColorFilter.matrix([-1,0,0,0,255,0,-1,0,0,255,0,0,-1,0,255,0,0,0,1,0]),
-                        child: CachedNetworkImage(imageUrl: 'https://android.quran.com/data/width_1024/page$pg.png', fit: BoxFit.fitWidth),
-                      )
-                    : CachedNetworkImage(imageUrl: 'https://android.quran.com/data/width_1024/page$pg.png', fit: BoxFit.fitWidth),
+                
+                Widget pageText = CachedNetworkImage(
+                  imageUrl: 'https://raw.githubusercontent.com/GovarJabbar/Quran-PNG/master/$pg.png',
+                  // التعديل السحري هنا: إجبار الصورة على أخذ عرض الشاشة بالكامل
+                  fit: BoxFit.fitWidth, 
+                  placeholder: (context, url) => Center(child: CircularProgressIndicator(color: Colors.grey.shade400)),
+                  errorWidget: (context, url, error) => const Center(child: Icon(Icons.error, color: Colors.red)),
+                );
+
+                return Center(
+                  child: Container(
+                    // خلينا الهوامش الجانبية صفر عشان الورقة تلزق في حافة الشاشة
+                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 40),
+                    decoration: BoxDecoration(
+                      color: paperColor,
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isDark ? Colors.black54 : Colors.black12,
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Padding(
+                            // خلينا الفراغ الجانبي للنص صفر كمان
+                            padding: const EdgeInsets.only(top: 30, bottom: 50, left: 0, right: 0),
+                            child: isDark 
+                                ? ColorFiltered(
+                                    colorFilter: const ColorFilter.matrix([
+                                      -1, 0, 0, 0, 255,
+                                       0,-1, 0, 0, 255,
+                                       0, 0,-1, 0, 255,
+                                       0, 0, 0, 1, 0,
+                                    ]),
+                                    child: pageText,
+                                  )
+                                : pageText,
+                          ),
+                        ),
+                        
+                        Positioned(
+                          bottom: 10,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Text(
+                              "${index + 1}",
+                              style: TextStyle(
+                                fontFamily: 'AmiriQuran',
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.grey.shade500 : Colors.brown.shade700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
           ),
+
+          // الشريط العلوي كما هو بدون تغيير
           AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
-            top: _showAppBar ? 0 : -120,
+            curve: Curves.easeOutCubic,
+            top: _showAppBar ? 0 : -130,
             left: 0, right: 0,
-            child: Container(
-              color: isDark ? Colors.black87 : Colors.white,
-              child: SafeArea(
-                child: Row(
-                  children: [
-                    IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
-                    const Spacer(),
-                    const Text("المصحف الشريف", style: TextStyle(fontFamily: 'AmiriQuran', fontSize: 20, fontWeight: FontWeight.bold)),
-                    const Spacer(),
-                    IconButton(icon: const Icon(Icons.find_in_page), onPressed: () => _showJumpDialog(context, isDark)),
-                  ],
+            child: ClipRRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: Container(
+                  color: isDark ? Colors.black.withOpacity(0.6) : Colors.white.withOpacity(0.7),
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.arrow_back_ios_new, color: isDark ? Colors.white : Colors.black87),
+                          onPressed: () => Navigator.pop(context)
+                        ),
+                        const Spacer(),
+                        Text(
+                          "المصحف الشريف", 
+                          style: TextStyle(
+                            fontFamily: 'AmiriQuran', 
+                            fontSize: 22, 
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontWeight: FontWeight.bold
+                          )
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: Icon(Icons.search, color: isDark ? Colors.white : Colors.black87), 
+                          onPressed: () => _showJumpDialog(context, isDark)
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -323,19 +401,38 @@ class _MushafPageState extends State<MushafPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("انتقل إلى صفحة", style: TextStyle(fontFamily: 'AmiriQuran')),
-        content: TextField(controller: _jumpController, keyboardType: TextInputType.number, autofocus: true),
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("الانتقال السريع", textAlign: TextAlign.center, style: TextStyle(fontFamily: 'AmiriQuran')),
+        content: TextField(
+          controller: _jumpController, 
+          keyboardType: TextInputType.number, 
+          autofocus: true,
+          textAlign: TextAlign.center,
+          decoration: InputDecoration(
+            hintText: "رقم الصفحة (1 - 604)",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+          ),
+        ),
         actions: [
-          TextButton(
-            child: const Text("ذهاب"),
-            onPressed: () {
-              int? p = int.tryParse(_jumpController.text);
-              if (p != null && p >= 1 && p <= 604) {
-                _pageController.jumpToPage(p - 1);
-                Navigator.pop(context);
-                _jumpController.clear();
-              }
-            },
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green.shade800,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                minimumSize: const Size(double.infinity, 45)
+              ),
+              child: const Text("ذهاب", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              onPressed: () {
+                int? p = int.tryParse(_jumpController.text);
+                if (p != null && p >= 1 && p <= 604) {
+                  _pageController.jumpToPage(p - 1);
+                  Navigator.pop(context);
+                  _jumpController.clear();
+                }
+              },
+            ),
           ),
         ],
       ),
